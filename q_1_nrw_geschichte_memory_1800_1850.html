@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Q1 NRW – Geschichte Memory (1800–1850)</title>
+  <style>
+    :root{ --bg:#0b1020; --panel:#121830; --front:#0f1630; --text:#e7ecff; --muted:#9aa6d1 }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:radial-gradient(1200px 800px at 10% -10%, #22306d 0, transparent 60%), radial-gradient(1200px 800px at 110% 10%, #1e2a5a 0, transparent 60%), var(--bg); color:var(--text)}
+    .wrap{max-width:1100px; margin:28px auto; padding:0 16px}
+    header{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px}
+    h1{font-size:clamp(20px,2.6vw,30px); margin:0}
+    .muted{color:var(--muted)}
+    .panel{background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.0)), var(--panel); border:1px solid #203369; border-radius:14px; padding:12px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; box-shadow:0 10px 28px rgba(0,0,0,.35)}
+    .controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+    button{background:#16214a; color:var(--text); border:1px solid #2a3b7b; border-radius:10px; padding:9px 12px; font-weight:700; cursor:pointer}
+    button:hover{border-color:#415ad6}
+    .stat{font-weight:800; font-variant-numeric:tabular-nums}
+
+    .grid{margin-top:14px; display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(130px,1fr))}
+    .card{position:relative; aspect-ratio:5/6; perspective:900px}
+    .inner{position:absolute; inset:0; transform-style:preserve-3d; transition:transform .5s ease}
+    .card.flipped .inner{transform:rotateY(180deg)}
+    .face{position:absolute; inset:0; backface-visibility:hidden; border-radius:12px; overflow:hidden; border:1px solid #2a3b7b; box-shadow:0 6px 18px rgba(0,0,0,.25) inset; display:flex; align-items:center; justify-content:center}
+    .front{background:radial-gradient(600px 300px at 20% 0%, rgba(255,255,255,.06), transparent 40%), var(--front); transform:rotateY(180deg)}
+    .back{background:repeating-linear-gradient(45deg, #11183b 0 12px, #0f1636 12px 24px)}
+    .word{padding:14px; text-align:center; font-weight:900; line-height:1.12; font-size:clamp(14px,2.2vw,22px)}
+    .chip{position:absolute; top:8px; right:8px; font:700 10px/1 ui-sans-serif; letter-spacing:.6px; background:#0e1534; color:#c7d2fe; border:1px solid #2a3772; padding:6px 8px; border-radius:999px}
+    .front .chip{background:#0b1a12; color:#b7f7da; border-color:#246b56}
+
+    @media (max-width:660px){ .grid{gap:10px; grid-template-columns:repeat(auto-fit, minmax(110px,1fr))} }
+    @media print{ body{background:white; color:black} .panel, header .muted{display:none} .face{border:1px solid #777; box-shadow:none} .front{transform:none} .card .inner{transform:none} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Q1 NRW – Memory: 1800–1850</h1>
+      <div class="muted">Daten ⇄ Ereignisse (Nationalstaatsbildung)</div>
+    </header>
+
+    <section class="panel">
+      <div class="controls">
+        <button id="btnNew">Neu mischen</button>
+        <button id="btnPeek" title="Alle Karten kurz aufdecken">Kurz zeigen</button>
+        <button id="btnPrint">Drucken</button>
+      </div>
+      <div class="controls">
+        <label for="pairsRange">Paare:&nbsp;<span id="pairsLabel" class="stat"></span></label>
+        <input id="pairsRange" type="range" min="2" value="14" step="1" />
+      </div>
+      <div class="controls">
+        <span>Züge: <span id="moves" class="stat">0</span></span>
+        <span> | Zeit: <span id="time" class="stat">00:00</span></span>
+        <span> | Gefunden: <span id="found" class="stat">0</span></span>
+      </div>
+    </section>
+
+    <main id="grid" class="grid" aria-label="Memory-Spielbrett"></main>
+  </div>
+
+  <script>
+    // ---------------------------------------
+    // Daten: Q1 NRW – erste Hälfte 19. Jhd.
+    // Je Paar: { year: "…", event: "…" }
+    // ---------------------------------------
+    const EVENTS_PAIRS = [
+      { "year": "1804", "event": "Napoleon krönt sich zum Kaiser der Franzosen" },
+      { "year": "1806", "event": "Ende des Heiligen Römischen Reiches (Abdankung Franz II.)" },
+      { "year": "1807", "event": "Oktoberedikt: Beginn der preußischen Reformen (Bauernbefreiung)" },
+      { "year": "1812", "event": "Napoleons Russlandfeldzug scheitert" },
+      { "year": "1813", "event": "Völkerschlacht bei Leipzig" },
+      { "year": "1814/15", "event": "Wiener Kongress ordnet Europa neu" },
+      { "year": "1815", "event": "Deutscher Bund wird gegründet (Bundestag in Frankfurt)" },
+      { "year": "1815", "event": "Heilige Allianz der Monarchen" },
+      { "year": "1817", "event": "Wartburgfest (studentisches Nationalfest)" },
+      { "year": "1819", "event": "Mord an August von Kotzebue in Mannheim" },
+      { "year": "1819", "event": "Karlsbader Beschlüsse: Zensur & Überwachung" },
+      { "year": "1830", "event": "Julirevolution in Frankreich – Signal für Opposition" },
+      { "year": "1832", "event": "Hambacher Fest: Einheit, Freiheit, Schwarz‑Rot‑Gold" },
+      { "year": "1834", "event": "Gründung des Deutschen Zollvereins" },
+      { "year": "1835", "event": "Erste deutsche Eisenbahn (Nürnberg–Fürth)" },
+      { "year": "1840", "event": "Rheinkrise verschärft Nationalkonflikt" },
+      { "year": "1844", "event": "Schlesischer Weberaufstand" },
+      { "year": "1848 März", "event": "Märzrevolution in den deutschen Staaten" },
+      { "year": "1848 Mai", "event": "Frankfurter Nationalversammlung (Paulskirche) beginnt" },
+      { "year": "1849 März", "event": "Paulskirchenverfassung beschlossen" },
+      { "year": "1849 April", "event": "Kaiserkrone für Friedrich Wilhelm IV. – abgelehnt" },
+      { "year": "1849/1850", "event": "Niederschlagung der Revolution, Phase der Reaktion" },
+      { "year": "1850", "event": "Olmützer Punktation: Preußen beugt sich Österreich" }
+    ];
+
+    // ---------------------------------------
+    // Spiel-Logik
+    // ---------------------------------------
+    const grid = document.getElementById('grid');
+    const movesEl = document.getElementById('moves');
+    const timeEl = document.getElementById('time');
+    const foundEl = document.getElementById('found');
+    const btnNew = document.getElementById('btnNew');
+    const btnPeek = document.getElementById('btnPeek');
+    const btnPrint = document.getElementById('btnPrint');
+    const pairsRange = document.getElementById('pairsRange');
+    const pairsLabel = document.getElementById('pairsLabel');
+
+    let state = { deck: [], flipped: [], lock:false, moves:0, found:0, timer:null, startAt:null, totalPairs:0 };
+
+    function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] } return arr }
+    function pad(n){ return String(n).padStart(2,'0'); }
+
+    function startTimer(){ if(state.timer) return; state.startAt = Date.now(); state.timer = setInterval(()=>{ const s=Math.floor((Date.now()-state.startAt)/1000); timeEl.textContent = pad(Math.floor(s/60))+":"+pad(s%60); }, 250); }
+    function stopTimer(){ if(state.timer){ clearInterval(state.timer); state.timer=null; } }
+
+    function buildDeck(pairs){
+      const deck=[]; let pid=0; for(const p of pairs){ deck.push({pairId:pid, side:'year', text:p.year}); deck.push({pairId:pid, side:'event', text:p.event}); pid++; } return shuffle(deck);
+    }
+
+    function reset(){ state.flipped=[]; state.lock=false; state.moves=0; state.found=0; movesEl.textContent='0'; foundEl.textContent='0'; timeEl.textContent='00:00'; stopTimer(); state.startAt=null; }
+
+    function createCardEl(card, idx){
+      const btn=document.createElement('button'); btn.type='button'; btn.className='card'; btn.setAttribute('data-index', String(idx)); btn.setAttribute('aria-pressed','false');
+      const inner=document.createElement('div'); inner.className='inner';
+      const front=document.createElement('div'); front.className='face front';
+      const back=document.createElement('div'); back.className='face back';
+      const chipF=document.createElement('div'); chipF.className='chip'; chipF.textContent = card.side==='year'?'Jahr':'Ereignis';
+      const word=document.createElement('div'); word.className='word'; word.textContent=card.text; front.appendChild(chipF); front.appendChild(word);
+      const chipB=document.createElement('div'); chipB.className='chip'; chipB.textContent='❓'; back.appendChild(chipB);
+      inner.appendChild(front); inner.appendChild(back); btn.appendChild(inner);
+      btn.addEventListener('click', onCardClick);
+      return btn;
+    }
+
+    function render(){ grid.innerHTML=''; state.deck.forEach((c,i)=> grid.appendChild(createCardEl(c,i))); }
+    function flip(i,on){ const el=grid.querySelector('.card[data-index="'+i+'"]'); if(!el) return; el.classList.toggle('flipped', !!on); el.setAttribute('aria-pressed', on?'true':'false'); }
+
+    function match(i1,i2){ [i1,i2].forEach(i=>{ const el=grid.querySelector('.card[data-index="'+i+'"]'); if(el){ el.style.outline='2px solid #2f8f68'; el.style.opacity=.92; }}); }
+
+    function onCardClick(e){ if(state.lock) return; const idx=+e.currentTarget.getAttribute('data-index'); if(state.flipped.includes(idx)) return; if(!state.startAt) startTimer(); flip(idx,true); state.flipped.push(idx); if(state.flipped.length===2){ state.moves++; movesEl.textContent=String(state.moves); const [a,b]=state.flipped; const ca=state.deck[a], cb=state.deck[b]; if(ca.pairId===cb.pairId && a!==b){ setTimeout(()=>{ match(a,b); state.flipped=[]; state.found++; foundEl.textContent=String(state.found); if(state.found===state.totalPairs){ stopTimer(); alert('Geschafft! Zeit '+timeEl.textContent+' · Züge '+state.moves); } }, 300); } else { state.lock=true; setTimeout(()=>{ flip(a,false); flip(b,false); state.flipped=[]; state.lock=false; }, 700); } } }
+
+    function init(){
+      reset();
+      pairsRange.max = String(EVENTS_PAIRS.length);
+      if(!pairsRange.value) pairsRange.value = String(Math.min(14, EVENTS_PAIRS.length));
+      if(+pairsRange.value > EVENTS_PAIRS.length) pairsRange.value = String(EVENTS_PAIRS.length);
+      const count = Math.min(EVENTS_PAIRS.length, Math.max(2, +pairsRange.value||2));
+      pairsLabel.textContent = String(count);
+      const chosen = shuffle(EVENTS_PAIRS.slice()).slice(0, count);
+      state.totalPairs = chosen.length;
+      state.deck = buildDeck(chosen);
+      render();
+    }
+
+    document.getElementById('btnNew').addEventListener('click', init);
+    document.getElementById('btnPeek').addEventListener('click', ()=>{ [...grid.querySelectorAll('.card')].forEach((_,i)=> flip(i,true)); setTimeout(()=>{ [...grid.querySelectorAll('.card')].forEach((el,i)=>{ if(!el.style.outline) flip(i,false); }); }, 1200); });
+    document.getElementById('btnPrint').addEventListener('click', ()=> window.print());
+    pairsRange.addEventListener('input', ()=> pairsLabel.textContent = String(pairsRange.value));
+    pairsRange.addEventListener('change', init);
+
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
